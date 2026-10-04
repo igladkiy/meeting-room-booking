@@ -32,3 +32,8 @@ export async function remove(id: string): Promise<boolean> {
   bookings = bookings.filter((b) => b.id !== id);
   return bookings.length < before;
 }
+
+/** Test-only helper to reset state between test cases. */
+export function __resetForTests(): void {
+  bookings = [];
+}
