@@ -138,6 +138,74 @@ describe('POST /bookings - overlap detection (sequential)', () => {
   });
 });
 
+describe('POST /bookings - concurrent requests (the core requirement)', () => {
+  it('allows only ONE of two truly concurrent overlapping requests for the same room to succeed', async () => {
+    const payloadA = {
+      roomId: ROOM_ID,
+      title: 'Request A',
+      createdBy: 'alice',
+      startTime: isoInFuture(5),
+      endTime: isoInFuture(6),
+    };
+    const payloadB = {
+      roomId: ROOM_ID,
+      title: 'Request B - overlaps A',
+      createdBy: 'bob',
+      startTime: isoInFuture(5.5),
+      endTime: isoInFuture(6.5),
+    };
+
+    // Fire both requests in parallel, simulating two users clicking
+    // "book" at (almost) the same instant.
+    const [resA, resB] = await Promise.all([
+      request(app).post('/bookings').send(payloadA),
+      request(app).post('/bookings').send(payloadB),
+    ]);
+
+    const statuses = [resA.status, resB.status].sort();
+    expect(statuses).toEqual([201, 409]);
+  });
+
+  it('allows only ONE winner out of 10 concurrent requests for the exact same slot', async () => {
+    const start = isoInFuture(7);
+    const end = isoInFuture(8);
+
+    const requests = Array.from({ length: 10 }, (_, i) =>
+      request(app)
+        .post('/bookings')
+        .send({
+          roomId: ROOM_ID,
+          title: `Contender ${i}`,
+          createdBy: `user-${i}`,
+          startTime: start,
+          endTime: end,
+        }),
+    );
+
+    const results = await Promise.all(requests);
+    const successCount = results.filter((r) => r.status === 201).length;
+    const conflictCount = results.filter((r) => r.status === 409).length;
+
+    expect(successCount).toBe(1);
+    expect(conflictCount).toBe(9);
+  });
+
+  it('does not block concurrent requests for DIFFERENT rooms (no false conflicts, no global lock)', async () => {
+    const start = isoInFuture(9);
+    const end = isoInFuture(10);
+
+    const [resRoom1, resRoom2, resRoom3] = await Promise.all([
+      request(app).post('/bookings').send({ roomId: 'room-1', title: 'A', createdBy: 'alice', startTime: start, endTime: end }),
+      request(app).post('/bookings').send({ roomId: 'room-2', title: 'B', createdBy: 'bob', startTime: start, endTime: end }),
+      request(app).post('/bookings').send({ roomId: 'room-3', title: 'C', createdBy: 'carol', startTime: start, endTime: end }),
+    ]);
+
+    expect(resRoom1.status).toBe(201);
+    expect(resRoom2.status).toBe(201);
+    expect(resRoom3.status).toBe(201);
+  });
+});
+
 describe('DELETE /bookings/:id', () => {
   it('deletes an existing booking', async () => {
     const created = await request(app)
