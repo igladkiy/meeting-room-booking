@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { AppError, Booking, CreateBookingInput } from '../types';
 import { getRoomOrThrow } from './roomService';
 import * as bookingStore from '../data/bookingStore';
+import { roomBookingMutex } from '../utils/keyedMutex';
 import { parseAndValidateRange, rangesOverlap, requireNonEmptyString } from '../utils/validators';
 
 export async function getBookingsForRoom(
@@ -26,6 +27,15 @@ export async function getBookingsForRoom(
 
 /**
  * Creates a booking after validating input and checking for conflicts.
+ *
+ * Concurrency note: the actual "read existing bookings -> check overlap ->
+ * insert" sequence below runs inside roomBookingMutex.runExclusive(roomId, ...),
+ * which guarantees that for a given room, this whole sequence behaves as one
+ * atomic unit relative to any other createBooking call for the SAME room.
+ * Calls for different rooms run fully in parallel - there is no global lock.
+ *
+ * See server/README.md -> "Concurrency strategy" for the full rationale and
+ * the production-grade (multi-instance) alternative.
  */
 export async function createBooking(input: CreateBookingInput): Promise<Booking> {
   const roomId = requireNonEmptyString(input.roomId, 'roomId');
@@ -35,31 +45,33 @@ export async function createBooking(input: CreateBookingInput): Promise<Booking>
   getRoomOrThrow(roomId);
   const { start, end } = parseAndValidateRange(input.startTime, input.endTime);
 
-  const existing = await bookingStore.findByRoom(roomId);
+  return roomBookingMutex.runExclusive(roomId, async () => {
+    const existing = await bookingStore.findByRoom(roomId);
 
-  const conflict = existing.find((b) =>
-    rangesOverlap(start, end, new Date(b.startTime), new Date(b.endTime)),
-  );
-
-  if (conflict) {
-    throw new AppError(
-      409,
-      'BOOKING_CONFLICT',
-      `Room is already booked from ${conflict.startTime} to ${conflict.endTime}`,
+    const conflict = existing.find((b) =>
+      rangesOverlap(start, end, new Date(b.startTime), new Date(b.endTime)),
     );
-  }
 
-  const booking: Booking = {
-    id: uuidv4(),
-    roomId,
-    title,
-    startTime: start.toISOString(),
-    endTime: end.toISOString(),
-    createdBy,
-    createdAt: new Date().toISOString(),
-  };
+    if (conflict) {
+      throw new AppError(
+        409,
+        'BOOKING_CONFLICT',
+        `Room is already booked from ${conflict.startTime} to ${conflict.endTime}`,
+      );
+    }
 
-  return bookingStore.insert(booking);
+    const booking: Booking = {
+      id: uuidv4(),
+      roomId,
+      title,
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+      createdBy,
+      createdAt: new Date().toISOString(),
+    };
+
+    return bookingStore.insert(booking);
+  });
 }
 
 export async function cancelBooking(bookingId: string): Promise<void> {
@@ -68,5 +80,9 @@ export async function cancelBooking(bookingId: string): Promise<void> {
     throw new AppError(404, 'BOOKING_NOT_FOUND', `Booking ${bookingId} does not exist or was already cancelled`);
   }
 
+  // Deletion doesn't need the room mutex: it can't create an overlap, and
+  // "delete something that no longer exists" is already handled by the
+  // existence check above (also safe if two deletes race - the second one
+  // will simply find nothing and throw 404).
   await bookingStore.remove(bookingId);
 }
