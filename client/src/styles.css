@@ -19,3 +19,113 @@ header h1 {
   font-size: 22px;
   margin-bottom: 20px;
 }
+
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+}
+
+.room-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.room-item {
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.room-item.selected {
+  border-color: #4f46e5;
+  background: #eef0ff;
+}
+
+.room-capacity {
+  color: #777;
+  font-size: 12px;
+}
+
+section {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+
+.booking-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.booking-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.booking-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: #444;
+  min-width: 110px;
+}
+
+.booking-info {
+  flex: 1;
+}
+
+.booking-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.booking-meta {
+  font-size: 12px;
+  color: #888;
+}
+
+.delete-btn {
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.error-text {
+  color: #b91c1c;
+  font-size: 13px;
+  margin: 0;
+}
+
+.global-error {
+  margin-bottom: 16px;
+}
+
+.muted {
+  color: #888;
+  font-size: 14px;
+}
