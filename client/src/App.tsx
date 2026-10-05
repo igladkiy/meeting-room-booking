@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RoomList } from './components/RoomList';
 import { DayView } from './components/DayView';
+import { BookingForm } from './components/BookingForm';
 import * as api from './api';
 import { Booking, Room } from './types';
 
@@ -43,6 +44,18 @@ export default function App() {
     }
   }, [selectedRoomId, loadBookings]);
 
+  async function handleCreateBooking(input: {
+    title: string;
+    createdBy: string;
+    startTime: string;
+    endTime: string;
+  }) {
+    if (!selectedRoomId) return;
+
+    await api.createBooking({ roomId: selectedRoomId, ...input });
+    await loadBookings(selectedRoomId);
+  }
+
   async function handleDeleteBooking(bookingId: string) {
     if (!selectedRoomId) return;
     setDeletingId(bookingId);
@@ -73,15 +86,21 @@ export default function App() {
 
         <main>
           {selectedRoomId ? (
-            <section>
-              <h2>Today's schedule</h2>
-              <DayView
-                bookings={bookings}
-                isLoading={isLoadingBookings}
-                onDelete={handleDeleteBooking}
-                deletingId={deletingId}
-              />
-            </section>
+            <>
+              <section>
+                <h2>Today's schedule</h2>
+                <DayView
+                  bookings={bookings}
+                  isLoading={isLoadingBookings}
+                  onDelete={handleDeleteBooking}
+                  deletingId={deletingId}
+                />
+              </section>
+
+              <section>
+                <BookingForm roomId={selectedRoomId} onSubmit={handleCreateBooking} />
+              </section>
+            </>
           ) : (
             !isLoadingRooms && <p className="muted">Select a room to see its schedule.</p>
           )}
