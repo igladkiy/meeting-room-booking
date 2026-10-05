@@ -52,8 +52,16 @@ export default function App() {
   }) {
     if (!selectedRoomId) return;
 
-    await api.createBooking({ roomId: selectedRoomId, ...input });
-    await loadBookings(selectedRoomId);
+    // Optimistic-ish flow: we don't insert locally before the server
+    // confirms, precisely because conflicts must be resolved server-side.
+    // On success OR on conflict, we refresh from the server so the UI
+    // always reflects the true state (important when another user's
+    // booking is what caused our conflict).
+    try {
+      await api.createBooking({ roomId: selectedRoomId, ...input });
+    } finally {
+      await loadBookings(selectedRoomId);
+    }
   }
 
   async function handleDeleteBooking(bookingId: string) {

@@ -71,7 +71,17 @@ export function BookingForm({ roomId, onSubmit }: Props) {
       setSuccessMessage('Booking created.');
       setTitle('');
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.code === 'BOOKING_CONFLICT') {
+        // The form passed client-side validation, but by the time the
+        // request reached the server, someone else had already booked an
+        // overlapping slot (classic race condition between two users).
+        // We surface this distinctly from a plain validation error, and
+        // nudge the user to look at the (now-refreshed) list rather than
+        // just showing a generic failure.
+        setServerError(
+          `This slot was just booked by someone else: ${err.message}. The schedule below has been refreshed — please pick another time.`,
+        );
+      } else if (err instanceof ApiError) {
         setServerError(err.message);
       } else {
         setServerError('Something went wrong. Please try again.');
@@ -107,7 +117,7 @@ export function BookingForm({ roomId, onSubmit }: Props) {
       </div>
 
       {clientError && <p className="error-text">{clientError}</p>}
-      {serverError && <p className="error-text">{serverError}</p>}
+      {serverError && <p className="error-text conflict">{serverError}</p>}
       {successMessage && <p className="success-text">{successMessage}</p>}
 
       <button type="submit" disabled={isSubmitting || !roomId}>

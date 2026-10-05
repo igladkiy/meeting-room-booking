@@ -166,6 +166,13 @@ button[type='submit']:disabled {
   margin: 0;
 }
 
+.error-text.conflict {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+
 .global-error {
   margin-bottom: 16px;
 }
